@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Tuple
 from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime
+from llm_service import LLMService
+from email_templates import response_templates
 import logging
 
 # Configure logging
@@ -14,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# Set OpenAI API key
+#Open_AI_api_key = os.getenv("OPENAI_API_KEY")
 
 # Sample email dataset
 sample_emails = [
@@ -58,13 +63,14 @@ sample_emails = [
 class EmailProcessor:
     def __init__(self):
         """Initialize the email processor with OpenAI API key."""
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
         # Define valid categories
         self.valid_categories = {
             "complaint", "inquiry", "feedback",
             "support_request", "other"
         }
+
+        self.llm = LLMService(api_key=os.getenv("OPENAI_API_KEY"))
+
 
     def classify_email(self, email: Dict) -> Optional[str]:
         """
@@ -76,8 +82,11 @@ class EmailProcessor:
         2. Make the API call with appropriate error handling
         3. Validate and return the classification
         """
-        pass
+        classification = self.llm.classify(email, self.valid_categories)
 
+        return classification
+
+      
     def generate_response(self, email: Dict, classification: str) -> Optional[str]:
         """
         Generate an automated response based on email classification.
@@ -87,7 +96,10 @@ class EmailProcessor:
         2. Implement appropriate response templates
         3. Add error handling
         """
-        pass
+        response = self.llm.generate_response(classification, email)
+        return response
+
+        
 
 
 class EmailAutomationSystem:
@@ -101,6 +113,7 @@ class EmailAutomationSystem:
             "support_request": self._handle_support_request,
             "other": self._handle_other
         }
+        
 
     def process_email(self, email: Dict) -> Dict:
         """
@@ -112,42 +125,140 @@ class EmailAutomationSystem:
         2. Add appropriate error handling
         3. Return processing results
         """
-        pass
 
-    def _handle_complaint(self, email: Dict):
+        classification = None
+        sent_response_ok = False
+
+        try: 
+            classification = self.processor.classify_email(email)
+
+            if classification is None:
+
+                return {
+                    
+                    "email_id":email['id'],
+                    "success": False,
+                    "classification":None,
+                    "response_sent":False
+                }
+
+            response = self.processor.generate_response(email=email,classification=classification)
+
+            if response is None:
+
+                return {
+
+                    "email_id":email["id"],
+                    "success": False,
+                    "classification":classification,
+                    "response_sent": False
+                }
+            
+            handler = self.response_handlers.get(classification['category'])
+
+            sent_response_ok = handler(email)
+
+            return{
+
+                "email_id":email["id"],
+                "success": True,
+                "classification":classification,
+                "response_sent": sent_response_ok
+            }
+
+        except Exception as e:
+
+            logger.error(f"Unable to process the Email {e}") 
+
+            return{
+
+                "email_id":email["id"],
+                "success": False,
+                "classification": classification,
+                "response_sent": sent_response_ok
+            }
+
+
+    def _handle_complaint(self, email: Dict) -> bool:
         """
         Handle complaint emails.
         TODO: Implement complaint handling logic
         """
-        pass
+        try:
+            create_urgent_ticket(email_id=email['id'], category='Complaint', context=email['body'])
+            send_complaint_response(email_id=email['id'],response=response_templates['complaint'])
+            return True
+        
+        except Exception as e:
 
-    def _handle_inquiry(self, email: Dict):
+            logger.error(f"Urgent ticket creation for email id: {email['id']} has failed {e}")
+            return False
+
+        
+
+    def _handle_inquiry(self, email: Dict) -> bool:
         """
         Handle inquiry emails.
         TODO: Implement inquiry handling logic
         """
-        pass
+        try:
+            response = self.processor.generate_response(email=email,classification='inquiry')
+            send_standard_response(email_id=email['id'], response=response)
+            print(f"Response created by the LLM: {response}")
+            return True
 
-    def _handle_feedback(self, email: Dict):
+        except Exception as e:
+            
+            logger.error(f"Ticket creation for email id: {email['id']}, has failed {e}")
+            return False
+
+    def _handle_feedback(self, email: Dict) -> bool:
         """
         Handle feedback emails.
         TODO: Implement feedback handling logic
         """
-        pass
+        try:
 
-    def _handle_support_request(self, email: Dict):
+            log_customer_feedback(email_id=email['id'], feedback=email['body'])
+            send_standard_response(email_id=email["body"],response=response_templates['feedback'])
+            return True
+
+        except Exception as e:
+    
+            logger.error(f"Sending response for email id: {email['id']} has FAILED {e}")
+            return False
+
+    def _handle_support_request(self, email: Dict) -> bool:
         """
         Handle support request emails.
         TODO: Implement support request handling logic
         """
-        pass
+        try:
+        
+            create_support_ticket(email_id=email['id'], context=email['body'])
+            send_standard_response(email_id=email['id'], response=response_templates['support_request'])
+            return True
 
-    def _handle_other(self, email: Dict):
+        except Exception as e:
+            
+            logger.error(f"Ticket creation for {email['id']} has FAILED")
+            return False
+
+    def _handle_other(self, email: Dict) -> bool:
         """
         Handle other category emails.
         TODO: Implement handling logic for other categories
         """
-        pass
+        try:
+            create_urgent_ticket(email_id=email['id'], category='Complaint', context=email['body'])
+            send_standard_response(email_id=email['id'],response=self.processor.generate_response(email,classification='other'))
+            return True
+        
+        except Exception as e:
+
+            logger.error(f"Sending response for email id: {email['id']} has FAILED {e}")
+            return False
+
 
 # Mock service functions
 def send_complaint_response(email_id: str, response: str):
@@ -192,15 +303,18 @@ def run_demonstration():
         logger.info(f"\nProcessing email {email['id']}...")
         result = automation_system.process_email(email)
         results.append(result)
-
+        print(result)
     # Create a summary DataFrame
     df = pd.DataFrame(results)
     print("\nProcessing Summary:")
+
     print(df[["email_id", "success", "classification", "response_sent"]])
+
 
     return df
 
 
 # Example usage:
 if __name__ == "__main__":
-    results_df = run_demonstration()
+
+    run_demonstration()
