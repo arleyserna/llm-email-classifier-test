@@ -316,5 +316,4 @@ def run_demonstration():
 
 # Example usage:
 if __name__ == "__main__":
-
-    run_demonstration()
+    results_df = run_demonstration()
