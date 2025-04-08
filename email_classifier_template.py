@@ -182,6 +182,7 @@ class EmailAutomationSystem:
     def _handle_complaint(self, email: Dict) -> bool:
         """
         Handle complaint emails.
+        In this method we will use a template to save tokens as the response should be standard for this kind of email.
         TODO: Implement complaint handling logic
         """
         try:
@@ -199,6 +200,9 @@ class EmailAutomationSystem:
     def _handle_inquiry(self, email: Dict) -> bool:
         """
         Handle inquiry emails.
+        
+        Custom response my be required for this type of email
+
         TODO: Implement inquiry handling logic
         """
         try:
@@ -215,8 +219,12 @@ class EmailAutomationSystem:
     def _handle_feedback(self, email: Dict) -> bool:
         """
         Handle feedback emails.
+
+        In this method we will use a template to save tokens as the response should be standard for this kind of email.
+
         TODO: Implement feedback handling logic
         """
+
         try:
 
             log_customer_feedback(email_id=email['id'], feedback=email['body'])
@@ -253,7 +261,7 @@ class EmailAutomationSystem:
         TODO: Implement handling logic for other categories
         """
         try:
-            create_urgent_ticket(email_id=email['id'], category='other', context=email['body'])
+            transfer_to_customer_service(email_id=email['id'], context=email['body'])
             send_standard_response(email_id=email['id'],response=self.processor.generate_response(email,classification='other'))
             return True
         
@@ -293,6 +301,9 @@ def log_customer_feedback(email_id: str, feedback: str):
     logger.info(f"Logging feedback for email {email_id}")
     # In real implementation: integrate with feedback system
 
+def transfer_to_customer_service(email_id, body: str):
+    """Mock function to simulate email transferring to customer service.""""
+    pass
 
 def run_demonstration():
     """Run a demonstration of the complete system."""
