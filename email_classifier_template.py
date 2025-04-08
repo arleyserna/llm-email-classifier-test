@@ -72,7 +72,7 @@ class EmailProcessor:
         self.llm = LLMService(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-    def classify_email(self, email: Dict) -> Optional[str]:
+    def classify_email(self, email: Dict) -> dict:
         """
         Classify an email using LLM.
         Returns the classification category or None if classification fails.
@@ -301,8 +301,8 @@ def log_customer_feedback(email_id: str, feedback: str):
     logger.info(f"Logging feedback for email {email_id}")
     # In real implementation: integrate with feedback system
 
-def transfer_to_customer_service(email_id, body: str):
-    """Mock function to simulate email transferring to customer service.""""
+def transfer_to_customer_service(email_id, context: str):
+    """Mock function to simulate email transferring to customer service."""
     pass
 
 def run_demonstration():
