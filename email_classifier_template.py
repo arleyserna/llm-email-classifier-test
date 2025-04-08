@@ -220,7 +220,7 @@ class EmailAutomationSystem:
         try:
 
             log_customer_feedback(email_id=email['id'], feedback=email['body'])
-            send_standard_response(email_id=email["body"],response=response_templates['feedback'])
+            send_standard_response(email_id=email["id"],response=response_templates['feedback'])
             return True
 
         except Exception as e:
@@ -231,6 +231,9 @@ class EmailAutomationSystem:
     def _handle_support_request(self, email: Dict) -> bool:
         """
         Handle support request emails.
+
+        In this method we will use a template to save tokens as the response should be standard for this kind of email.
+
         TODO: Implement support request handling logic
         """
         try:
@@ -250,7 +253,7 @@ class EmailAutomationSystem:
         TODO: Implement handling logic for other categories
         """
         try:
-            create_urgent_ticket(email_id=email['id'], category='Complaint', context=email['body'])
+            create_urgent_ticket(email_id=email['id'], category='other', context=email['body'])
             send_standard_response(email_id=email['id'],response=self.processor.generate_response(email,classification='other'))
             return True
         
